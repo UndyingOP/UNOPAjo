@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Circle</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="auth-page">
+    <section class="auth-card">
+      <div class="card-heading">
+        <span class="eyebrow">AJO MANAGEMENT</span>
+        <h2>Manage circle</h2>
+        <p id="manageMessage">Loading circle details...</p>
+      </div>
+
+      <div class="circle-section">
+        <h3>Contribution settings</h3>
+        <input type="number" id="editContribution" placeholder="Contribution amount" />
+        <input type="number" id="editMaxMembers" placeholder="Max members" />
+        <button class="primary-btn" id="saveCircleBtn">Save changes</button>
+      </div>
+
+      <div class="circle-section">
+        <h3>Members</h3>
+        <div id="manageMembersList">Loading...</div>
+      </div>
+
+      <button class="primary-btn" id="backBtn">Back</button>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js';
+    import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js';
+    import { getFirestore, doc, getDoc, updateDoc, collection, getDocs, deleteDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: 'AIzaSyAbaiJswS_QUenyuAjhhAl5wn4PzImE0NQ',
+      authDomain: 'ajo-tracker-5588e.firebaseapp.com',
+      projectId: 'ajo-tracker-5588e',
+      storageBucket: 'ajo-tracker-5588e.firebasestorage.app',
+      messagingSenderId: '73162480690',
+      appId: '1:73162480690:web:c47cbf9b3fe8d22afd302b',
+      measurementId: 'G-1HXG6H3W4V'
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const circleId = params.get('id');
+    const manageMessage = document.getElementById('manageMessage');
+    const editContribution = document.getElementById('editContribution');
+    const editMaxMembers = document.getElementById('editMaxMembers');
+    const manageMembersList = document.getElementById('manageMembersList');
+
+    let currentCircle = null;
+    let currentUser = null;
+
+    async function loadCircle() {
+      if (!circleId) return;
+      const ref = doc(db, 'circles', circleId);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        manageMessage.textContent = 'Circle not found.';
+        return;
+      }
+      currentCircle = snap.data();
+      editContribution.value = currentCircle.contribution || '';
+      editMaxMembers.value = currentCircle.maxMembers || '';
+      manageMessage.textContent = `Editing ${currentCircle.name}`;
+
+      const membersRef = collection(db, 'circles', circleId, 'members');
+      const membersSnap = await getDocs(membersRef);
+      manageMembersList.innerHTML = '';
+      membersSnap.forEach((memberSnap) => {
+        const member = memberSnap.data();
+        const row = document.createElement('div');
+        row.className = 'circle-card';
+        row.innerHTML = `
+          <p><strong>${member.email || 'Member'}</strong></p>
+          <p>Status: ${member.status || 'active'}</p>
+          <p>Paid: ${member.paid ? 'Yes' : 'No'}</p>
+          <div class="circle-section" style="margin-top:8px;">
+            <button class="join-btn" data-action="toggle-paid" data-member-id="${memberSnap.id}">${member.paid ? 'Mark unpaid' : 'Mark paid'}</button>
+            <button class="join-btn" data-action="remove" data-member-id="${memberSnap.id}" style="margin-top:8px;">Remove member</button>
+          </div>
+        `;
+        manageMembersList.appendChild(row);
+      });
+
+      manageMembersList.querySelectorAll('button').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const memberId = button.getAttribute('data-member-id');
+          const action = button.getAttribute('data-action');
+          const memberRef = doc(db, 'circles', circleId, 'members', memberId);
+
+          if (action === 'toggle-paid') {
+            const memberSnap = await getDoc(memberRef);
+            const memberData = memberSnap.data() || {};
+            await setDoc(memberRef, { ...memberData, paid: !memberData.paid }, { merge: true });
+            manageMessage.textContent = 'Payment status updated.';
+            await loadCircle();
+          } else if (action === 'remove') {
+            if (memberId === currentUser?.uid) {
+              manageMessage.textContent = 'You cannot remove yourself from the admin view.';
+              return;
+            }
+            await deleteDoc(memberRef);
+            manageMessage.textContent = 'Member removed.';
+            await loadCircle();
+          }
+        });
+      });
+    }
+
+    document.getElementById('saveCircleBtn').addEventListener('click', async () => {
+      if (!circleId) return;
+      const ref = doc(db, 'circles', circleId);
+      await updateDoc(ref, {
+        contribution: Number(editContribution.value) || 0,
+        maxMembers: Number(editMaxMembers.value) || 0
+      });
+      manageMessage.textContent = 'Circle updated successfully.';
+    });
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+      window.location.href = `circle.html?id=${circleId}`;
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = 'index.html';
+        return;
+      }
+      currentUser = user;
+      await loadCircle();
+    });
+  </script>
+</body>
+</html>

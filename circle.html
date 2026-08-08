@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Ajo Circle</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+</head>
+
+
+<body>
+
+<main class="auth-page">
+
+<section class="auth-card">
+
+
+    <!-- =========================
+         CIRCLE HEADER
+    ========================== -->
+
+    <div class="card-heading">
+
+        <span class="eyebrow">
+            AJO CIRCLE
+        </span>
+
+        <h2 id="circleName">
+            Loading...
+        </h2>
+
+        <p id="circleInfo">
+            Loading circle information...
+        </p>
+
+        <p id="adminInfo">
+            Loading admin...
+        </p>
+
+    </div>
+
+
+    <!-- =========================
+         MEMBERS
+    ========================== -->
+
+    <div class="circle-section">
+
+        <h3>
+            Members
+        </h3>
+
+        <p id="memberCount">
+            Loading members...
+        </p>
+
+        <div id="membersList">
+            Loading...
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         CURRENT CONTRIBUTION
+    ========================== -->
+
+    <div class="circle-section">
+
+        <h3>
+            💰 Current Contribution
+        </h3>
+
+        <p id="roundInfo">
+            Loading round...
+        </p>
+
+        <div id="contributionInfo">
+
+            <p>
+                Loading contribution...
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         ADMIN CONTROLS
+    ========================== -->
+
+    <div
+        class="circle-section"
+        id="adminControls"
+        style="display: none;"
+    >
+
+        <h3>
+            👑 Admin Controls
+        </h3>
+
+        <p>
+            You are the administrator of this circle.
+        </p>
+
+        <button
+            class="primary-btn"
+            id="manageCircleBtn"
+        >
+            Manage Circle
+        </button>
+
+    </div>
+
+
+    <hr>
+
+
+    <!-- =========================
+         BACK BUTTON
+    ========================== -->
+
+    <button
+        class="primary-btn"
+        id="backBtn"
+    >
+        Back to Dashboard
+    </button>
+
+
+</section>
+
+</main>
+
+
+<script type="module">
+
+window.addEventListener("error", (event) => {
+    const errorMessage = event.error ? event.error.message : event.message;
+    const errorStack = event.error ? event.error.stack : "";
+    const errorNode = document.getElementById("circleInfo");
+    if (errorNode) {
+        errorNode.textContent = `Runtime error: ${errorMessage}`;
+    }
+    console.error("Circle page runtime error:", errorMessage, errorStack);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+    const errorMessage = event.reason ? event.reason.message || event.reason : String(event.reason);
+    const errorNode = document.getElementById("circleInfo");
+    if (errorNode) {
+        errorNode.textContent = `Promise error: ${errorMessage}`;
+    }
+    console.error("Circle page promise rejection:", event.reason);
+});
+
+
+/* =========================
+   FIREBASE IMPORTS
+========================== */
+
+import {
+    initializeApp
+} from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
+
+
+import {
+    getAuth,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
+
+
+import {
+    getFirestore,
+    doc,
+    getDoc,
+    collection,
+    getDocs,
+    setDoc,
+    serverTimestamp,
+    deleteDoc
+} from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+
+
+/* =========================
+   FIREBASE CONFIG
+========================== */
+
+const firebaseConfig = {
+
+    apiKey:
+        "AIzaSyAbaiJswS_QUenyuAjhhAl5wn4PzImE0NQ",
+
+    authDomain:
+        "ajo-tracker-5588e.firebaseapp.com",
+
+    projectId:
+        "ajo-tracker-5588e",
+
+    storageBucket:
+        "ajo-tracker-5588e.firebasestorage.app",
+
+    messagingSenderId:
+        "73162480690",
+
+    appId:
+        "1:73162480690:web:c47cbf9b3fe8d22afd302b",
+
+    measurementId:
+        "G-1HXG6H3W4V"
+
+};
+
+
+/* =========================
+   INITIALIZE FIREBASE
+========================== */
+
+const app =
+    initializeApp(firebaseConfig);
+
+
+const auth =
+    getAuth(app);
+
+
+const db =
+    getFirestore(app);
+
+
+/* =========================
+   HTML ELEMENTS
+========================== */
+
+const circleName =
+    document.getElementById("circleName");
+
+
+const circleInfo =
+    document.getElementById("circleInfo");
+
+
+const adminInfo =
+    document.getElementById("adminInfo");
+
+
+const memberCount =
+    document.getElementById("memberCount");
+
+
+const membersList =
+    document.getElementById("membersList");
+
+
+const roundInfo =
+    document.getElementById("roundInfo");
+
+
+const contributionInfo =
+    document.getElementById("contributionInfo");
+
+
+const adminControls =
+    document.getElementById("adminControls");
+
+
+const manageCircleBtn =
+    document.getElementById("manageCircleBtn");
+
+
+const backBtn =
+    document.getElementById("backBtn");
+
+
+/* =========================
+   CURRENT USER
+========================== */
+
+let currentUser = null;
+
+let currentCircle = null;
+
+
+function isCircleAdmin() {
+
+    if (!currentUser || !currentCircle) {
+        return false;
+    }
+
+    return (
+        currentUser.uid === currentCircle.adminId ||
+        currentUser.email === currentCircle.adminEmail ||
+        currentUser.uid === currentCircle.adminUserId
+    );
+
+}
+
+
+/* =========================
+   GET CIRCLE ID
+========================== */
+
+const urlParams =
+    new URLSearchParams(
+        window.location.search
+    );
+
+
+const circleId =
+    urlParams.get("id");
+
+
+/* =========================
+   CHECK CIRCLE ID
+========================== */
+
+if (!circleId) {
+
+    circleName.textContent =
+        "Circle not found";
+
+    circleInfo.textContent =
+        "No circle ID was provided.";
+
+    adminInfo.textContent =
+        "";
+
+}
+
+
+/* =========================
+   AUTH STATE
+========================== */
+
+onAuthStateChanged(
+    auth,
+    async (user) => {
+
+        if (!user) {
+
+            window.location.href =
+                "index.html";
+
+            return;
+
+        }
+
+
+        currentUser =
+            user;
+
+
+        if (circleId) {
+
+            await loadCircle();
+
+        }
+
+    }
+);
+
+
+/* =========================
+   LOAD CIRCLE
+========================== */
+
+async function loadCircle() {
+
+    try {
+
+        const circleRef =
+            doc(
+                db,
+                "circles",
+                circleId
+            );
+
+
+        const circleSnapshot =
+            await getDoc(
+                circleRef
+            );
+
+
+        if (
+            !circleSnapshot.exists()
+        ) {
+
+            circleName.textContent =
+                "Circle not found";
+
+            circleInfo.textContent =
+                "This circle does not exist.";
+
+            adminInfo.textContent =
+                "";
+
+            return;
+
+        }
+
+
+        currentCircle =
+            circleSnapshot.data();
+
+
+        /* =====================
+           ADMIN CHECK
+        ===================== */
+
+        const isAdmin =
+            isCircleAdmin();
+
+
+        if (isAdmin) {
+
+            adminControls.style.display =
+                "block";
+
+        }
+
+
+        /* =====================
+           CIRCLE INFORMATION
+        ===================== */
+
+        circleName.textContent =
+            currentCircle.name;
+
+
+        circleInfo.textContent =
+            `₦${Number(
+                currentCircle.contribution
+            ).toLocaleString()} • ${currentCircle.frequency}`;
+
+
+        adminInfo.textContent =
+            `Admin: ${currentCircle.adminEmail}`;
+
+
+        /* =====================
+           LOAD MEMBERS
+        ===================== */
+
+        const isMember = await loadMembers();
+
+        if (!isAdmin && !isMember) {
+            circleInfo.textContent =
+                "You are not a member of this circle.";
+            memberCount.textContent = "";
+            membersList.innerHTML =
+                "<p>You do not have permission to view this circle.</p>";
+            roundInfo.textContent = "";
+            contributionInfo.innerHTML = "";
+            return;
+        }
+
+
+        /* =====================
+           LOAD ROUND
+        ===================== */
+
+        await loadCurrentRound();
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "Error loading circle:",
+            error
+        );
+
+
+        circleName.textContent =
+            "Unable to load circle";
+
+        circleInfo.textContent =
+            error?.message
+                ? `Something went wrong: ${error.message}`
+                : "Something went wrong.";
+
+    }
+
+}
+
+
+/* =========================
+   LOAD MEMBERS
+========================== */
+
+async function loadMembers() {
+
+    try {
+
+        const membersSnapshot =
+            await getDocs(
+                collection(
+                    db,
+                    "circles",
+                    circleId,
+                    "members"
+                )
+            );
+
+
+        let isCurrentMember = false;
+
+
+        /* =====================
+           MEMBER COUNT
+        ===================== */
+
+        memberCount.textContent =
+            `Members: ${membersSnapshot.size} / ${currentCircle.maxMembers}`;
+
+
+        membersList.innerHTML =
+            "";
+
+
+        if (
+            membersSnapshot.empty
+        ) {
+
+            membersList.innerHTML =
+                "<p>No members yet.</p>";
+
+            return false;
+
+        }
+
+
+        /* =====================
+           DISPLAY MEMBERS
+        ===================== */
+
+        membersSnapshot.forEach(
+            (memberSnapshot) => {
+
+                const member =
+                    memberSnapshot.data();
+
+
+                const memberElement =
+                    document.createElement(
+                        "div"
+                    );
+
+                memberElement.className = "circle-card";
+
+
+                const isCurrentUser =
+                    member.userId ===
+                    currentUser.uid;
+
+
+                const isAdmin =
+                    member.userId ===
+                    currentCircle.adminId;
+
+
+                if (
+                    member.userId === currentUser.uid ||
+                    member.email === currentUser.email
+                ) {
+                    isCurrentMember = true;
+                }
+
+                const statusLabel = member.paid ? "Paid" : "Pending";
+                const badgeClass = member.paid ? "message success" : "message error";
+
+                memberElement.innerHTML = `
+                    <p><strong>${escapeHTML(member.email || "Member")}</strong></p>
+                    <p>${isCurrentUser ? "You" : "Member"}${isAdmin ? " • 👑 Admin" : ""}</p>
+                    <p class="${badgeClass}" style="margin-top:6px; display:inline-block;">${statusLabel}</p>
+                `;
+
+                if (isAdmin && currentUser.uid === currentCircle.adminId) {
+                    const removeBtn = document.createElement("button");
+                    removeBtn.className = "join-btn";
+                    removeBtn.textContent = "Remove member";
+                    removeBtn.addEventListener("click", async () => {
+                        if (member.userId === currentUser.uid) {
+                            return;
+                        }
+                        await deleteDoc(doc(db, "circles", circleId, "members", memberSnapshot.id));
+                        await loadMembers();
+                    });
+                    memberElement.appendChild(removeBtn);
+                }
+
+                membersList.appendChild(
+                    memberElement
+                );
+
+            }
+        );
+
+        return isCurrentMember;
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "Error loading members:",
+            error
+        );
+
+
+        memberCount.textContent =
+            error?.message
+                ? `Unable to load members: ${error.message}`
+                : "Unable to load members.";
+
+        return false;
+
+    }
+
+}
+
+
+/* =========================
+   LOAD CURRENT ROUND
+========================== */
+
+async function loadCurrentRound() {
+
+    try {
+
+        const roundsRef =
+            collection(
+                db,
+                "circles",
+                circleId,
+                "rounds"
+            );
+
+
+        const roundsSnapshot =
+            await getDocs(
+                roundsRef
+            );
+
+
+        const memberCountValue =
+            Number(
+                currentCircle.maxMembers || 0
+            );
+
+        const expectedRounds =
+            Math.max(1, memberCountValue);
+
+
+        const isAdmin =
+            isCircleAdmin();
+
+        if (
+            roundsSnapshot.empty
+        ) {
+
+            if (isAdmin) {
+
+                await createRound(1);
+
+                return;
+
+            }
+
+            roundInfo.textContent =
+                "Waiting for the circle admin to start the first round.";
+
+            contributionInfo.innerHTML =
+                "<p>The current round has not started yet.</p>";
+
+            return;
+
+        }
+
+
+        let latestRound = null;
+
+
+        /* =====================
+           FIND LATEST ROUND
+        ===================== */
+
+        roundsSnapshot.forEach(
+            (roundSnapshot) => {
+
+                const round =
+                    roundSnapshot.data();
+
+
+                if (
+                    !latestRound ||
+                    Number(round.number) >
+                    Number(latestRound.number)
+                ) {
+
+                    latestRound = {
+
+                        id:
+                            roundSnapshot.id,
+
+                        ...round
+
+                    };
+
+                }
+
+            }
+        );
+
+
+        if (
+            latestRound &&
+            Number(latestRound.number) < expectedRounds &&
+            isCircleAdmin()
+        ) {
+
+            await createRound(
+                Number(latestRound.number) + 1
+            );
+
+            return;
+
+        }
+
+
+        await displayRound(
+            latestRound
+        );
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "Round loading error:",
+            error
+        );
+
+
+        roundInfo.textContent =
+            "Unable to load round.";
+
+        contributionInfo.innerHTML =
+            "<p>Unable to load contribution information. Check your Firestore rules and sign in as the circle admin.</p>";
+
+    }
+
+}
+
+
+/* =========================
+   CREATE ROUND
+========================== */
+
+async function createRound(
+    roundNumber
+) {
+
+    try {
+
+        const roundId =
+            `round-${roundNumber}`;
+
+
+        const roundRef =
+            doc(
+                db,
+                "circles",
+                circleId,
+                "rounds",
+                roundId
+            );
+
+
+        const existingRound =
+            await getDoc(
+                roundRef
+            );
+
+
+        if (
+            !existingRound.exists()
+        ) {
+
+            await setDoc(
+                roundRef,
+                {
+
+                    number:
+                        roundNumber,
+
+                    status:
+                        "active",
+
+                    createdAt:
+                        serverTimestamp()
+
+                }
+            );
+
+        }
+
+
+        /* =====================
+           CREATE CONTRIBUTIONS
+        ===================== */
+
+        await createContributionRecords(
+            roundId
+        );
+
+
+        await displayRound({
+
+            id:
+                roundId,
+
+            number:
+                roundNumber,
+
+            status:
+                "active"
+
+        });
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "Create round error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================
+   CREATE CONTRIBUTION RECORDS
+========================== */
+
+async function createContributionRecords(
+    roundId
+) {
+
+    const membersSnapshot =
+        await getDocs(
+            collection(
+                db,
+                "circles",
+                circleId,
+                "members"
+            )
+        );
+
+
+    for (
+        const memberSnapshot
+        of membersSnapshot.docs
+    ) {
+
+        const member =
+            memberSnapshot.data();
+
+
+        const contributionRef =
+            doc(
+                db,
+                "circles",
+                circleId,
+                "rounds",
+                roundId,
+                "contributions",
+                memberSnapshot.id
+            );
+
+
+        const contributionSnapshot =
+            await getDoc(
+                contributionRef
+            );
+
+
+        if (
+            !contributionSnapshot.exists()
+        ) {
+
+            await setDoc(
+                contributionRef,
+                {
+
+                    userId:
+                        member.userId,
+
+                    email:
+                        member.email,
+
+                    amount:
+                        Number(
+                            currentCircle.contribution
+                        ),
+
+                    status:
+                        "pending",
+
+                    createdAt:
+                        serverTimestamp()
+
+                }
+            );
+
+        }
+
+    }
+
+}
+
+
+async function getRoundPayoutRecipient(
+    round
+) {
+
+    const membersSnapshot =
+        await getDocs(
+            collection(
+                db,
+                "circles",
+                circleId,
+                "members"
+            )
+        );
+
+    const members =
+        membersSnapshot.docs.map(
+            (memberSnapshot) => ({
+                id:
+                    memberSnapshot.id,
+                ...memberSnapshot.data()
+            })
+        );
+
+    if (
+        !members.length
+    ) {
+        return null;
+    }
+
+    const recipientIndex =
+        ((Number(round.number) - 1) % members.length + members.length) % members.length;
+
+    const recipient =
+        members[recipientIndex];
+
+    return {
+        id:
+            recipient.id,
+        userId:
+            recipient.userId,
+        email:
+            recipient.email || "Member"
+    };
+
+}
+
+
+/* =========================
+   DISPLAY ROUND
+========================== */
+
+async function displayRound(
+    round
+) {
+
+    const contributionsSnapshot =
+        await getDocs(
+            collection(
+                db,
+                "circles",
+                circleId,
+                "rounds",
+                round.id,
+                "contributions"
+            )
+        );
+
+    let roundPaidCount =
+        0;
+
+    let total =
+        0;
+
+    contributionsSnapshot.forEach(
+        (contributionSnapshot) => {
+
+            total++;
+
+            if (
+                contributionSnapshot.data().status === "paid"
+            ) {
+                roundPaidCount++;
+            }
+
+        }
+    );
+
+    const nextStatus =
+        total > 0 && roundPaidCount === total
+            ? "completed"
+            : "active";
+
+    const payoutRecipient =
+        await getRoundPayoutRecipient(
+            round
+        );
+
+    const isAdmin =
+        isCircleAdmin();
+
+    const shouldUpdateRound =
+        isAdmin && (
+            round.status !== nextStatus ||
+            (nextStatus === "completed" && (
+                round.payoutRecipientId !== payoutRecipient?.id ||
+                round.payoutRecipientEmail !== payoutRecipient?.email
+            ))
+        );
+
+    if (
+        shouldUpdateRound
+    ) {
+
+        const roundRef =
+            doc(
+                db,
+                "circles",
+                circleId,
+                "rounds",
+                round.id
+            );
+
+        await setDoc(
+            roundRef,
+            {
+                status:
+                    nextStatus,
+                payoutRecipientId:
+                    payoutRecipient?.id || null,
+                payoutRecipientEmail:
+                    payoutRecipient?.email || null,
+                payoutRecipientUserId:
+                    payoutRecipient?.userId || null,
+                completedAt:
+                    nextStatus === "completed"
+                        ? new Date().toISOString()
+                        : null
+            },
+            {
+                merge: true
+            }
+        );
+
+        round.status =
+            nextStatus;
+
+        round.payoutRecipientId =
+            payoutRecipient?.id || null;
+
+        round.payoutRecipientEmail =
+            payoutRecipient?.email || null;
+
+    }
+
+    roundInfo.textContent =
+        `Round ${round.number} • ${capitalize(round.status)}`;
+
+    const memberCountValue =
+        Number(
+            currentCircle.maxMembers || 0
+        );
+
+    const expectedRounds =
+        Math.max(1, memberCountValue);
+
+    contributionInfo.innerHTML =
+        "";
+
+    if (
+        isCircleAdmin() &&
+        round.status !== "completed" &&
+        Number(round.number) < expectedRounds
+    ) {
+        const nextBtn = document.createElement("button");
+        nextBtn.className = "join-btn";
+        nextBtn.textContent = `Advance to round ${Number(round.number) + 1}`;
+        nextBtn.style.marginTop = "10px";
+        nextBtn.addEventListener("click", async () => {
+            await createRound(Number(round.number) + 1);
+        });
+        contributionInfo.appendChild(nextBtn);
+    }
+
+
+    let paid =
+        0;
+
+
+    let pending =
+        0;
+
+
+    /* =====================
+       DISPLAY CONTRIBUTIONS
+    ===================== */
+
+    contributionsSnapshot.forEach(
+        (contributionSnapshot) => {
+
+            const contribution =
+                contributionSnapshot.data();
+
+
+            const row =
+                document.createElement(
+                    "div"
+                );
+
+
+            row.className =
+                "circle-card";
+
+
+            const status =
+                contribution.status;
+
+
+            if (
+                status === "paid"
+            ) {
+
+                paid++;
+
+            }
+
+            else {
+
+                pending++;
+
+            }
+
+
+            const statusText =
+                status === "paid"
+                    ? "✅ Paid"
+                    : "⏳ Pending";
+
+
+            row.innerHTML = `
+
+                <p>
+                    <strong>
+                        ${escapeHTML(
+                            contribution.email
+                        )}
+                    </strong>
+                </p>
+
+                <p>
+                    ₦${Number(
+                        contribution.amount
+                    ).toLocaleString()}
+                    •
+                    ${statusText}
+                </p>
+
+            `;
+
+            if (isCircleAdmin()) {
+                const toggleBtn = document.createElement("button");
+                toggleBtn.className = "join-btn";
+                toggleBtn.textContent = contribution.status === "paid" ? "Mark pending" : "Mark paid";
+                toggleBtn.addEventListener("click", async () => {
+                    const contributionRef = doc(db, "circles", circleId, "rounds", round.id, "contributions", contributionSnapshot.id);
+                    await setDoc(contributionRef, { ...contribution, status: contribution.status === "paid" ? "pending" : "paid" }, { merge: true });
+                    await displayRound(round);
+                });
+                row.appendChild(toggleBtn);
+            }
+
+            contributionInfo.appendChild(
+                row
+            );
+
+        }
+    );
+
+
+    /* =====================
+       NO CONTRIBUTIONS
+    ===================== */
+
+    if (
+        contributionsSnapshot.empty
+    ) {
+
+        contributionInfo.innerHTML =
+            "<p>No contribution records found.</p>";
+
+    }
+
+
+    /* =====================
+       SUMMARY
+    ===================== */
+
+    const paidAmount =
+        paid *
+        Number(
+            currentCircle.contribution
+        );
+
+
+    const totalAmount =
+        total *
+        Number(
+            currentCircle.contribution
+        );
+
+
+    const summary =
+        document.createElement(
+            "p"
+        );
+
+
+    summary.innerHTML = `
+
+        <strong>
+            ${paid} / ${total} paid
+        </strong>
+
+        <br>
+
+        ₦${paidAmount.toLocaleString()}
+        of
+        ₦${totalAmount.toLocaleString()}
+
+    `;
+
+
+    const payoutSummary =
+        document.createElement(
+            "p"
+        );
+
+
+    payoutSummary.innerHTML = `
+
+        <strong>
+            Payout recipient
+        </strong>
+
+        <br>
+
+        ${escapeHTML(
+            round.payoutRecipientEmail || "Waiting for next round"
+        )}
+
+    `;
+
+
+    contributionInfo.prepend(
+        payoutSummary
+    );
+
+    contributionInfo.prepend(
+        summary
+    );
+
+}
+
+
+/* =========================
+   CAPITALIZE
+========================== */
+
+function capitalize(
+    text
+) {
+
+    if (!text) {
+
+        return "";
+
+    }
+
+
+    return text.charAt(0).toUpperCase()
+        + text.slice(1);
+
+}
+
+
+/* =========================
+   HTML ESCAPING
+========================== */
+
+function escapeHTML(
+    value
+) {
+
+    return String(value)
+
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+
+}
+
+
+/* =========================
+   MANAGE CIRCLE
+========================== */
+
+manageCircleBtn.addEventListener(
+    "click",
+    () => {
+
+        window.location.href =
+            `manage-circle.html?id=${circleId}`;
+
+    }
+);
+
+
+/* =========================
+   BACK TO DASHBOARD
+========================== */
+
+backBtn.addEventListener(
+    "click",
+    () => {
+
+        window.location.href =
+            "dashboard.html";
+
+    }
+);
+
+
+</script>
+
+</body>
+
+</html>

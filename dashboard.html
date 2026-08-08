@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Ajo Dashboard</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+</head>
+
+
+<body>
+
+<main class="auth-page">
+
+<section class="auth-card">
+
+
+    <!-- =========================
+         HEADER
+    ========================== -->
+
+    <div class="card-heading">
+
+        <span class="eyebrow">
+            AJO DASHBOARD
+        </span>
+
+        <h2>
+            Welcome 👋
+        </h2>
+
+        <p id="userEmail">
+            Checking your account...
+        </p>
+
+    </div>
+
+
+    <!-- =========================
+         EXISTING CIRCLES
+    ========================== -->
+
+    <div class="circle-section">
+
+        <h3>
+            Existing circles
+        </h3>
+
+        <p>
+            Join a savings circle created by another member.
+        </p>
+
+        <div id="circlesList">
+
+            <p>
+                Loading circles...
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         CREATE CIRCLE
+    ========================== -->
+
+    <div class="circle-section">
+
+        <h3>
+            Create a savings circle
+        </h3>
+
+        <p>
+            Start a new circle and become its admin.
+        </p>
+
+
+        <input
+            type="text"
+            id="circleName"
+            placeholder="Circle name"
+        >
+
+
+        <input
+            type="number"
+            id="contribution"
+            placeholder="Contribution amount"
+            min="1"
+        >
+
+
+        <select id="frequency">
+
+            <option value="weekly">
+                Weekly
+            </option>
+
+            <option value="monthly">
+                Monthly
+            </option>
+
+        </select>
+
+
+        <input
+            type="number"
+            id="maxMembers"
+            placeholder="Number of members"
+            min="2"
+        >
+
+
+        <button
+            class="primary-btn"
+            id="createCircleBtn"
+        >
+            Create circle
+        </button>
+
+
+        <p
+            id="circleMessage"
+            class="message hidden"
+        ></p>
+
+    </div>
+
+
+    <hr>
+
+
+    <button
+        class="primary-btn"
+        id="logoutBtn"
+    >
+        Sign out
+    </button>
+
+
+</section>
+
+</main>
+
+
+<script type="module">
+
+import {
+    initializeApp
+} from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
+
+import {
+    getAuth,
+    onAuthStateChanged,
+    signOut
+} from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
+
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    setDoc,
+    doc,
+    serverTimestamp,
+    getDocs,
+    getDoc
+} from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+
+
+/* =================================
+   FIREBASE
+================================= */
+
+const firebaseConfig = {
+
+    apiKey:
+        "AIzaSyAbaiJswS_QUenyuAjhhAl5wn4PzImE0NQ",
+
+    authDomain:
+        "ajo-tracker-5588e.firebaseapp.com",
+
+    projectId:
+        "ajo-tracker-5588e",
+
+    storageBucket:
+        "ajo-tracker-5588e.firebasestorage.app",
+
+    messagingSenderId:
+        "73162480690",
+
+    appId:
+        "1:73162480690:web:c47cbf9b3fe8d22afd302b",
+
+    measurementId:
+        "G-1HXG6H3W4V"
+};
+
+
+const app =
+    initializeApp(firebaseConfig);
+
+const auth =
+    getAuth(app);
+
+const db =
+    getFirestore(app);
+
+
+/* =================================
+   ELEMENTS
+================================= */
+
+const userEmail =
+    document.getElementById("userEmail");
+
+const logoutBtn =
+    document.getElementById("logoutBtn");
+
+const createCircleBtn =
+    document.getElementById("createCircleBtn");
+
+const circleNameInput =
+    document.getElementById("circleName");
+
+const contributionInput =
+    document.getElementById("contribution");
+
+const frequencyInput =
+    document.getElementById("frequency");
+
+const maxMembersInput =
+    document.getElementById("maxMembers");
+
+const circleMessage =
+    document.getElementById("circleMessage");
+
+const circlesList =
+    document.getElementById("circlesList");
+
+
+let currentUser = null;
+
+
+/* =================================
+   MESSAGE
+================================= */
+
+function showCircleMessage(
+    text,
+    type = "error"
+) {
+
+    circleMessage.textContent =
+        text;
+
+    circleMessage.className =
+        `message ${type}`;
+
+}
+
+
+/* =================================
+   AUTH
+================================= */
+
+onAuthStateChanged(
+    auth,
+    async (user) => {
+
+        if (!user) {
+
+            window.location.href =
+                "index.html";
+
+            return;
+        }
+
+
+        currentUser =
+            user;
+
+
+        userEmail.textContent =
+            `Signed in as ${user.email}`;
+
+
+        await loadCircles();
+
+    }
+);
+
+
+/* =================================
+   LOAD CIRCLES
+================================= */
+
+async function loadCircles() {
+
+    try {
+
+        circlesList.innerHTML =
+            "<p>Loading circles...</p>";
+
+
+        const snapshot =
+            await getDocs(
+                collection(
+                    db,
+                    "circles"
+                )
+            );
+
+
+        circlesList.innerHTML =
+            "";
+
+
+        if (snapshot.empty) {
+
+            circlesList.innerHTML =
+                "<p>No circles have been created yet.</p>";
+
+            return;
+        }
+
+
+        snapshot.forEach(
+            (circleSnapshot) => {
+
+                const circle =
+                    circleSnapshot.data();
+
+
+                const card =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                card.className =
+                    "circle-card";
+
+
+                const memberCount =
+                    circle.memberCount || 0;
+
+
+                card.innerHTML = `
+
+                    <h4>
+                        ${escapeHTML(circle.name)}
+                    </h4>
+
+                    <p>
+                        ₦${Number(circle.contribution).toLocaleString()}
+                        • ${escapeHTML(circle.frequency)}
+                    </p>
+
+                    <p>
+                        Members:
+                        ${memberCount}
+                        /
+                        ${circle.maxMembers}
+                    </p>
+
+                    <button
+                        class="join-btn"
+                        data-id="${circleSnapshot.id}"
+                    >
+                        Join Circle
+                    </button>
+
+                    <button
+                        class="primary-btn view-circle-btn"
+                        data-id="${circleSnapshot.id}"
+                    >
+                        View Circle
+                    </button>
+
+                `;
+
+
+                circlesList.appendChild(
+                    card
+                );
+
+
+                const joinButton =
+                    card.querySelector(
+                        ".join-btn"
+                    );
+
+
+                joinButton.addEventListener(
+                    "click",
+                    () => {
+
+                        joinCircle(
+                            circleSnapshot.id
+                        );
+
+                    }
+                );
+
+
+                const viewButton =
+                    card.querySelector(
+                        ".view-circle-btn"
+                    );
+
+
+                viewButton.addEventListener(
+                    "click",
+                    () => {
+
+                        window.location.href =
+                            `circle.html?id=${circleSnapshot.id}`;
+
+                    }
+                );
+
+            }
+        );
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "Load circles error:",
+            error
+        );
+
+
+        circlesList.innerHTML =
+            "<p>Unable to load circles.</p>";
+
+    }
+
+}
+
+
+/* =================================
+   JOIN CIRCLE
+================================= */
+
+async function joinCircle(
+    circleId
+) {
+
+    if (!currentUser) {
+
+        alert(
+            "You must be signed in."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        const circleRef =
+            doc(
+                db,
+                "circles",
+                circleId
+            );
+
+
+        const circleSnapshot =
+            await getDoc(
+                circleRef
+            );
+
+
+        if (!circleSnapshot.exists()) {
+
+            alert(
+                "Circle not found."
+            );
+
+            return;
+        }
+
+
+        const circle =
+            circleSnapshot.data();
+
+
+        const memberRef =
+            doc(
+                db,
+                "circles",
+                circleId,
+                "members",
+                currentUser.uid
+            );
+
+
+        const existingMember =
+            await getDoc(
+                memberRef
+            );
+
+
+        if (existingMember.exists()) {
+
+            alert(
+                "You are already a member of this circle."
+            );
+
+            return;
+        }
+
+
+        const currentCount =
+            Number(
+                circle.memberCount || 0
+            );
+
+
+        if (
+            currentCount >=
+            Number(circle.maxMembers)
+        ) {
+
+            alert(
+                "This circle is already full."
+            );
+
+            return;
+        }
+
+
+        await setDoc(
+            memberRef,
+            {
+
+                userId:
+                    currentUser.uid,
+
+                email:
+                    currentUser.email,
+
+                joinedAt:
+                    serverTimestamp(),
+
+                status:
+                    "active",
+
+                totalContributed:
+                    0
+
+            }
+        );
+
+
+        await setDoc(
+            circleRef,
+            {
+
+                memberCount:
+                    currentCount + 1
+
+            },
+            {
+                merge: true
+            }
+        );
+
+
+        alert(
+            "You joined the circle! 🎉"
+        );
+
+
+        await loadCircles();
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            "Join circle error:",
+            error
+        );
+
+
+        alert(
+            "Unable to join this circle."
+        );
+
+    }
+
+}
+
+
+/* =================================
+   CREATE CIRCLE
+================================= */
+
+createCircleBtn.addEventListener(
+    "click",
+    async () => {
+
+        showCircleMessage(
+            "",
+            "hidden"
+        );
+
+
+        const name =
+            circleNameInput.value.trim();
+
+        const amount =
+            Number(
+                contributionInput.value
+            );
+
+        const frequency =
+            frequencyInput.value;
+
+        const members =
+            Number(
+                maxMembersInput.value
+            );
+
+
+        if (!name) {
+
+            showCircleMessage(
+                "Enter a circle name."
+            );
+
+            return;
+        }
+
+
+        if (
+            !amount ||
+            amount <= 0
+        ) {
+
+            showCircleMessage(
+                "Enter a valid contribution amount."
+            );
+
+            return;
+        }
+
+
+        if (
+            !members ||
+            members < 2
+        ) {
+
+            showCircleMessage(
+                "A circle needs at least 2 members."
+            );
+
+            return;
+        }
+
+
+        if (!currentUser) {
+
+            showCircleMessage(
+                "You must be signed in."
+            );
+
+            return;
+        }
+
+
+        createCircleBtn.disabled =
+            true;
+
+        createCircleBtn.textContent =
+            "Creating...";
+
+
+        try {
+
+            const circleRef =
+                await addDoc(
+                    collection(
+                        db,
+                        "circles"
+                    ),
+                    {
+
+                        name:
+                            name,
+
+                        contribution:
+                            amount,
+
+                        frequency:
+                            frequency,
+
+                        maxMembers:
+                            members,
+
+                        memberCount:
+                            1,
+
+                        adminId:
+                            currentUser.uid,
+
+                        adminEmail:
+                            currentUser.email,
+
+                        createdAt:
+                            serverTimestamp(),
+
+                        currentRound:
+                            1,
+
+                        status:
+                            "active"
+
+                    }
+                );
+
+
+            /* =========================
+               ADMIN BECOMES MEMBER
+            ========================= */
+
+            await setDoc(
+                doc(
+                    db,
+                    "circles",
+                    circleRef.id,
+                    "members",
+                    currentUser.uid
+                ),
+                {
+
+                    userId:
+                        currentUser.uid,
+
+                    email:
+                        currentUser.email,
+
+                    joinedAt:
+                        serverTimestamp(),
+
+                    status:
+                        "active",
+
+                    totalContributed:
+                        0
+
+                }
+            );
+
+
+            showCircleMessage(
+                "Circle created successfully! 🎉",
+                "success"
+            );
+
+
+            circleNameInput.value =
+                "";
+
+            contributionInput.value =
+                "";
+
+            maxMembersInput.value =
+                "";
+
+
+            await loadCircles();
+
+        }
+
+
+        catch (error) {
+
+            console.error(
+                "Create circle error:",
+                error
+            );
+
+
+            showCircleMessage(
+                "Unable to create circle. Check your Firestore rules."
+            );
+
+        }
+
+
+        finally {
+
+            createCircleBtn.disabled =
+                false;
+
+            createCircleBtn.textContent =
+                "Create circle";
+
+        }
+
+    }
+);
+
+
+/* =================================
+   SIGN OUT
+================================= */
+
+logoutBtn.addEventListener(
+    "click",
+    async () => {
+
+        try {
+
+            await signOut(
+                auth
+            );
+
+
+            window.location.href =
+                "index.html";
+
+        }
+
+
+        catch (error) {
+
+            console.error(
+                "Sign out error:",
+                error
+            );
+
+        }
+
+    }
+);
+
+
+/* =================================
+   BASIC HTML ESCAPING
+================================= */
+
+function escapeHTML(
+    value
+) {
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+}
+
+</script>
+
+</body>
+</html>
