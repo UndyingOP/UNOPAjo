@@ -1,270 +1,424 @@
-#UNOP AJO Savings Circle
-
-AJO Savings Circle is a web-based savings-circle management application designed to help users create, join, and manage collaborative savings circles.
+# UNOP AJO Savings Tracker
 
 ## Overview
 
-The application allows authenticated users to:
+The **AJO Savings Tracker** is a web-based platform designed to help AJO (rotational savings) groups manage, monitor, and keep records of their savings activities digitally.
 
-- Create a savings circle.
-- Become the administrator of a circle they create.
-- Join existing savings circles.
-- View circle information and members.
-- Track the current contribution round.
-- View contribution status for circle members.
-- Access administrator controls for circles they manage.
-- Sign in and sign out securely.
+The project was created to make traditional AJO management simpler, more user-friendly, functional, and secure while giving members better visibility into their savings activities.
 
-The project is built as a client-side web application using HTML, CSS, JavaScript, Firebase Authentication, and Cloud Firestore.
+The system allows members to track payments and view the current state of their AJO circle, while administrators have tools for managing the circle and maintaining its records.
+
+---
+
+## Website Goals
+
+The main goals of the AJO Savings Tracker are:
+
+- **Simplicity** – keep the system easy to understand and use.
+- **User friendliness** – provide an interface that feels familiar to users.
+- **Functionality** – provide the essential tools required to manage an AJO circle.
+- **Safety, security and privacy** – protect users, authentication data, and circle records.
+- **Better user experience** – provide a smoother digital alternative to manually tracking AJO activities.
+
+The interface also takes inspiration from familiar Nigerian payment applications. An **OPay-inspired layout and interaction style** was considered because many potential users are already comfortable with that type of interface.
+
+> **Note:** The project uses an OPay-inspired user experience for familiarity; it is not affiliated with or operated by OPay.
+
+---
+
+## Core Functions
+
+### 1. Registration and Onboarding
+
+The Sign Up / Sign In page handles:
+
+- User registration
+- User authentication
+- Login
+- Access control
+- Onboarding into the application
+
+Firebase Authentication is used to manage user authentication.
+
+---
+
+### 2. Dashboard
+
+The main dashboard provides the starting point for AJO activities.
+
+Users can:
+
+- Create an AJO circle
+- View available circles
+- Join an existing circle
+- Open and view a circle
+- Sign out of the application
+
+---
+
+### 3. Circle Dashboard
+
+The circle dashboard is the main workspace for an AJO group.
+
+Members can:
+
+- View circle information
+- View the members of the circle
+- Track contribution records
+- Track payments
+- Monitor the current round
+- View the current state of the AJO
+- View contribution status and payout-related information
+
+The aim is to give members a clear record of what has happened within the circle instead of relying entirely on information communicated by the administrator.
+
+---
+
+### 4. Manage Circle
+
+The Manage Circle section provides administrative controls.
+
+The administrator can:
+
+- Manage the circle
+- Mark member payments
+- Manage rounds
+- Update circle information
+- Maintain relevant AJO records
+
+Administrative actions are restricted so that ordinary members cannot use administrator controls.
+
+---
+
+## Application Structure
+
+The main web flow is:
+
+```text
+Sign Up / Sign In
+        │
+        ▼
+   Dashboard
+        │
+   ┌────┼───────────────┐
+   │    │               │
+   ▼    ▼               ▼
+Create  View           Join
+ AJO    AJO            AJO
+        │
+        ▼
+ Circle Dashboard
+        │
+   ┌────┴──────────────┐
+   │                   │
+   ▼                   ▼
+Members            Contributions
+   │                   │
+   ▼                   ▼
+Tracking          Payment Status
+                       │
+                       ▼
+                  AJO Rounds
+                       │
+                       ▼
+                  Payout Records
+
+Administrator
+      │
+      ▼
+Manage Circle
+      │
+      ├── Mark Payment
+      ├── Manage Rounds
+      └── Update Data
+```
+
+---
 
 ## Technology Stack
 
-- **HTML5** — Page structure and content.
-- **CSS3** — Styling and responsive layout.
-- **JavaScript (ES Modules)** — Application logic and Firebase integration.
-- **Firebase Authentication** — User authentication and session management.
-- **Cloud Firestore** — Storage for users, circles, members, rounds, and contributions.
-- **GitHub Pages** — Suitable for hosting the static frontend.
+The project uses a simple web technology stack:
 
-## Main Pages
+| Technology | Purpose |
+|---|---|
+| HTML | Page structure |
+| CSS | Styling and user interface |
+| JavaScript | Application functionality and interaction |
+| Firebase Authentication | User authentication |
+| Firebase Firestore | Data storage and real-time application data |
+| Firebase Security Rules | Access control and data protection |
 
-### `index.html`
-The authentication/entry page where users sign in before accessing the application.
+### HTML
 
-### `dashboard.html`
-The main dashboard. Users can:
+HTML is responsible for creating the pages and application structure.
 
-- See existing circles.
-- Create a new savings circle.
-- Join an existing circle.
-- Open a circle.
-- Sign out.
+### CSS
 
-### `circle.html`
-Displays details of a selected circle, including:
+CSS provides the visual design, layout, spacing, buttons, cards, forms, and overall user interface.
 
-- Circle name.
-- Contribution amount.
-- Contribution frequency.
-- Administrator.
-- Members.
-- Current round.
-- Contribution records.
-- Administrator controls.
+### JavaScript
 
-### `manage-circle.html`
-The administrator management page for controlling a circle.
+JavaScript controls the application's functionality, including:
 
-### `style.css`
-Contains the shared visual design and layout styles.
+- Authentication state
+- Creating circles
+- Joining circles
+- Loading circles
+- Loading members
+- Contribution records
+- AJO rounds
+- Navigation
+- Administrative interactions
 
-## Firebase Data Structure
+### Firebase
 
-The application uses Cloud Firestore with a structure similar to:
+Firebase provides the backend services used by the current application.
+
+**Firebase Authentication** handles user identity and authentication.
+
+**Cloud Firestore** stores application data such as users, circles, members, rounds, and contribution records.
+
+**Firestore Security Rules** control who can read and modify protected data.
+
+---
+
+## Security Measures
+
+Security was considered as a major part of the system design.
+
+### Firebase Storage / Firestore
+
+Application data is stored using Firebase services rather than being kept only inside the browser.
+
+### Firebase Authentication
+
+User authentication is handled through Firebase Authentication.
+
+This allows the application to identify the currently signed-in user before allowing access to protected areas.
+
+### Admin UID Protection
+
+Each AJO circle contains an administrator UID.
+
+The administrator's Firebase UID is linked to the circle document, allowing Firestore Security Rules to verify whether a user is actually the administrator.
+
+Conceptually:
 
 ```text
-users/
-  {userId}
+Authenticated User UID
+          │
+          ▼
+       Firebase
+          │
+          ▼
+    Security Rules
+          │
+          ▼
+Compare with circle.adminId
+          │
+      ┌───┴───┐
+      ▼       ▼
+   Admin    Member
+      │       │
+      ▼       ▼
+Admin       Member
+Controls    Controls
+```
 
+This prevents a user from simply claiming administrator privileges from the client side.
+
+### Firestore Security Rules
+
+Security Rules are used to restrict operations based on authentication and ownership.
+
+For example, administrator-only operations can check:
+
+```text
+request.auth.uid == resource.data.adminId
+```
+
+This means the application does not rely only on hidden buttons or JavaScript checks to protect administrative operations.
+
+### Firebase Snapshots
+
+Firebase's data model and snapshot-based updates are used to keep displayed application data synchronized with the stored state and reduce problems caused by stale client-side information.
+
+---
+
+## AJO Data Model
+
+The application is organized around an AJO circle and its related records.
+
+A simplified structure is:
+
+```text
 circles/
-  {circleId}
-    members/
-      {userId}
+    {circleId}
+        name
+        contribution
+        frequency
+        maxMembers
+        memberCount
+        adminId
+        adminEmail
+        createdAt
+        currentRound
+        status
 
-    rounds/
-      {roundId}
-        contributions/
-          {userId}
+        members/
+            {userId}
+                userId
+                email
+                joinedAt
+                status
+                totalContributed
+
+        rounds/
+            {roundId}
+                number
+                status
+                createdAt
+
+                contributions/
+                    {userId}
+                        userId
+                        email
+                        amount
+                        status
+                        createdAt
 ```
 
-### Circle document
+This structure separates:
 
-A circle contains information such as:
+- Circle information
+- Member information
+- Round information
+- Individual contribution records
+
+That separation makes the system easier to manage and extend.
+
+---
+
+## User Roles
+
+### Member
+
+A member can:
+
+- Register and sign in
+- View AJO circles
+- Join circles
+- View circle members
+- View contribution records
+- Track payment status
+- Monitor AJO rounds
+- View the current state of the circle
+
+### Administrator
+
+An administrator has the member capabilities plus additional management privileges.
+
+The administrator can:
+
+- Manage the circle
+- Mark payments
+- Manage rounds
+- Update relevant circle data
+- Maintain the circle's records
+
+Administrator privileges are controlled through authentication and Firestore Security Rules.
+
+---
+
+## Design Philosophy
+
+The project is built around five major principles:
 
 ```text
-name
-contribution
-frequency
-maxMembers
-memberCount
-adminId
-adminEmail
-createdAt
-currentRound
-status
+        SIMPLICITY
+            │
+            ▼
+      USER FRIENDLINESS
+            │
+            ▼
+      FUNCTIONALITY
+            │
+            ▼
+    SECURITY & PRIVACY
+            │
+            ▼
+       BETTER AJO
+     MANAGEMENT
 ```
 
-### Member document
+The objective is not simply to digitize an AJO spreadsheet. The objective is to create a system where members can independently see the state of their circle and its records.
 
-A member contains information such as:
+---
 
-```text
-userId
-email
-joinedAt
-status
-totalContributed
-```
+## Current Project Scope
 
-### Contribution document
+The current implementation focuses primarily on the **client-side web application** together with Firebase services.
 
-A contribution record contains information such as:
-
-```text
-userId
-email
-amount
-status
-createdAt
-```
-
-Contribution statuses currently include:
-
-- `pending`
-- `paid`
-
-## Application Flow
-
-```text
-User
-  ↓
-Sign in
-  ↓
-Dashboard
-  ├── Create Circle
-  │      ↓
-  │   Become Admin + Member
-  │
-  └── Join Existing Circle
-         ↓
-      Become Member
-         ↓
-      Open Circle
-         ↓
-      View Members & Contributions
-```
-
-## Circle Creation
-
-When a user creates a circle, the application stores the circle configuration in Firestore and automatically makes the creator the administrator and first member.
-
-The initial member count is therefore:
-
-```text
-1 / maximum members
-```
-
-## Joining a Circle
-
-A user can join an available circle from the dashboard.
-
-The application checks:
-
-1. The user is authenticated.
-2. The circle exists.
-3. The user is not already a member.
-4. The circle has not reached its maximum membership.
-
-The member is then added to the circle.
-
-## Security
-
-Firestore Security Rules are used to control access to application data.
-
-The rules should ensure that:
-
-- Users can access their own user records.
-- Authenticated users can read appropriate circle information.
-- Only the authenticated administrator can update or delete their circle.
-- Users can create their own membership record.
-- Administrators can manage members.
-- Round management is restricted to the circle administrator.
-- Contribution updates are restricted to the relevant member or administrator.
-
-**Important:** Always deploy and test Firestore Security Rules before using the application with real financial information.
-
-## Current Development Status
-
-The core application flow is operational:
+The application provides the core structure for:
 
 - Authentication
-- Dashboard
-- Circle creation
-- Admin membership
-- Circle joining
-- Circle viewing
-- Member display
-- Round display
-- Contribution tracking structure
-- Admin management structure
+- AJO creation
+- AJO discovery
+- Joining circles
+- Member management
+- Contribution tracking
+- Round management
+- Administrative controls
+- Secure Firebase data access
 
-### Planned Improvements
+The project can be expanded with more advanced financial and automation capabilities as development continues.
 
-Future development can include:
+---
 
-- Automatic contribution-record creation when a new member joins an existing round.
-- Contribution payment confirmation.
-- Automatic round progression.
-- Payout/recipient tracking.
-- Transaction history.
-- Member removal and replacement.
-- Circle notifications.
-- Automated bank-alert integration.
-- Improved error handling.
-- Performance optimization.
-- More detailed administrator analytics.
+## Future Development
 
-## Local Development
+Potential future improvements include:
 
-Because the application uses Firebase modules and authentication, it is recommended to run it through a local development server rather than opening HTML files directly with `file://`.
+- Real wallet/payment integration
+- Automated payment verification
+- Bank or payment-provider integration
+- Automated payout processing
+- Transaction history
+- Payment notifications
+- More advanced member dashboards
+- Improved administrator analytics
+- Automated AJO round progression
+- Audit logs
+- Enhanced fraud prevention
+- More advanced privacy and security controls
 
-For example, using VS Code with a local server extension:
+For a production system handling real money, financial operations should be implemented through an appropriate regulated payment or banking partner rather than treating a Firestore balance as actual money.
 
-```text
-Open project
-    ↓
-Start local server
-    ↓
-Open index.html
-    ↓
-Sign in
-```
+---
 
-Make sure your Firebase project's Authentication and Firestore services are configured correctly.
+## Project Vision
 
-## Deployment
+Traditional AJO systems often depend heavily on an administrator to keep records and communicate the state of the savings group.
 
-The frontend can be deployed using GitHub Pages or another static hosting service.
+The AJO Savings Tracker aims to reduce that dependence by giving members direct access to the information that concerns them.
 
-Before deployment:
+The vision is:
 
-1. Verify the Firebase configuration.
-2. Verify Firebase Authentication settings.
-3. Verify Firestore Security Rules.
-4. Add the production domain to Firebase Authentication's authorized domains.
-5. Test login, circle creation, joining, and viewing.
-6. Test the application with more than one account.
+> **A simple, user-friendly and secure digital platform where AJO members can see, track and understand the state of their savings circle.**
 
-## Project Structure
+---
 
-A typical project structure is:
-
-```text
-AJO/
-│
-├── index.html
-├── dashboard.html
-├── circle.html
-├── manage-circle.html
-├── style.css
-└── README.md
-```
-
-Additional JavaScript files or assets can be added as the application grows.
 
 ## Important Note
 
 This application is currently a development project. Although it is designed around savings-circle functionality, it should not be used to process or store real financial transactions until the security rules, transaction logic, authentication, validation, and backend architecture have been thoroughly tested.
+
+## Conclusion
+
+The AJO Savings Tracker combines a familiar web interface with Firebase authentication, Firestore data storage, and security rules to create a digital foundation for managing rotational savings groups.
+
+The project focuses on **simplicity, functionality, transparency, security, and user experience**, while providing a foundation that can later be extended into a more complete financial platform.
+
 
 ## Author
 
