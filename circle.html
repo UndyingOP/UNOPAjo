@@ -411,10 +411,23 @@ async function loadCircle() {
             return;
 
         }
+currentCircle = circleSnapshot.data();
 
+if (
+    Number(currentCircle.memberCount || 0) <
+    Number(currentCircle.maxMembers || 0)
+) {
+    alert(
+        `Circle locked. Waiting for members: ${currentCircle.memberCount}/${currentCircle.maxMembers}`
+    );
 
-        currentCircle =
-            circleSnapshot.data();
+    window.location.href = "dashboard.html";
+    return;
+}
+
+await loadCurrentRound();
+
+    
 
 
         /* =====================
